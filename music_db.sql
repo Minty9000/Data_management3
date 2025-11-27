@@ -1,4 +1,3 @@
---
 -- Correct Music Database Schema (hw3 - music_db.sql)
 -- Fully compliant with assignment requirements
 -- Artists uniquely identified by NAME (no artist_id)
@@ -6,7 +5,6 @@
 -- Albums unique per (title, artist_name)
 -- Album stores genre_id (album has ONE genre)
 -- Songs store artist_name as FK
---
 
 SET foreign_key_checks = 0;
 
@@ -21,27 +19,24 @@ DROP TABLE IF EXISTS Genre;
 
 SET foreign_key_checks = 1;
 
-----------------------------------------------------------------
+-- ==========================================
 -- 1. GENRE
-----------------------------------------------------------------
+-- ==========================================
 CREATE TABLE Genre (
     genre_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(50) NOT NULL UNIQUE
 );
 
-----------------------------------------------------------------
+-- ==========================================
 -- 2. ARTIST
--- Artist MUST be uniquely identified by NAME (assignment rule)
-----------------------------------------------------------------
+-- ==========================================
 CREATE TABLE Artist (
     name VARCHAR(100) PRIMARY KEY
 );
 
-----------------------------------------------------------------
+-- ==========================================
 -- 3. ALBUM
--- Each album has one genre
--- (title, artist_name) is UNIQUE
-----------------------------------------------------------------
+-- ==========================================
 CREATE TABLE Album (
     album_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
@@ -53,12 +48,9 @@ CREATE TABLE Album (
     FOREIGN KEY (genre_id) REFERENCES Genre(genre_id) ON DELETE RESTRICT
 );
 
-----------------------------------------------------------------
+-- ==========================================
 -- 4. SONG
--- Songs must have artist_name (FK)
--- Songs can be singles (album_id NULL)
--- UNIQUE(title, artist_name) required by assignment
-----------------------------------------------------------------
+-- ==========================================
 CREATE TABLE Song (
     song_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
@@ -70,11 +62,9 @@ CREATE TABLE Song (
     FOREIGN KEY (album_id) REFERENCES Album(album_id) ON DELETE CASCADE
 );
 
-----------------------------------------------------------------
--- 5. SONGARTIST (for covers ONLY)
--- A song can have multiple artists (covers)
--- Main artist stored in Song.artist_name
-----------------------------------------------------------------
+-- ==========================================
+-- 5. SONGARTIST (for covers)
+-- ==========================================
 CREATE TABLE SongArtist (
     song_id BIGINT NOT NULL,
     artist_name VARCHAR(100) NOT NULL,
@@ -83,10 +73,9 @@ CREATE TABLE SongArtist (
     FOREIGN KEY (artist_name) REFERENCES Artist(name) ON DELETE CASCADE
 );
 
-----------------------------------------------------------------
+-- ==========================================
 -- 6. SONGGENRE
--- Many-to-many: song ↔ genre
-----------------------------------------------------------------
+-- ==========================================
 CREATE TABLE SongGenre (
     song_id BIGINT NOT NULL,
     genre_id INT NOT NULL,
@@ -95,19 +84,16 @@ CREATE TABLE SongGenre (
     FOREIGN KEY (genre_id) REFERENCES Genre(genre_id) ON DELETE CASCADE
 );
 
-----------------------------------------------------------------
+-- ==========================================
 -- 7. USER
--- Users identified by username
-----------------------------------------------------------------
+-- ==========================================
 CREATE TABLE User (
     username VARCHAR(30) PRIMARY KEY
 );
 
-----------------------------------------------------------------
+-- ==========================================
 -- 8. RATING
--- A user can rate a song ONCE
--- rating_value must be between 1 and 5
-----------------------------------------------------------------
+-- ==========================================
 CREATE TABLE Rating (
     username VARCHAR(30) NOT NULL,
     song_id BIGINT NOT NULL,
