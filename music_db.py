@@ -53,7 +53,7 @@ def load_single_songs(mydb, single_songs):
             rejects.add((title, artist))
             continue
 
-        # 4. Get song_id to insert genres
+        # 4. Get song_id to insert genres and SongArtist
         cursor.execute("""
             SELECT song_id FROM Song 
             WHERE title=%s AND artist_name=%s
@@ -76,6 +76,12 @@ def load_single_songs(mydb, single_songs):
                 INSERT IGNORE INTO SongGenre(song_id, genre_id)
                 VALUES (%s, %s)
             """, (song_id, gid))
+
+        # 6. Link artist to song in SongArtist table
+        cursor.execute("""
+            INSERT IGNORE INTO SongArtist(song_id, artist_name)
+            VALUES (%s, %s)
+        """, (song_id, artist))
 
     mydb.commit()
     return rejects
@@ -122,11 +128,11 @@ def get_artists_last_single_in_year(mydb, year: int) -> Set[str]:
     return {row[0] for row in cursor.fetchall()}
 
 
-def load_albums(mydb, albums: List[Tuple[str, str, str, List[str]]]) -> Set[Tuple[str, str]]:
+def load_albums(mydb, albums: List[Tuple[str, str, str, str, List[str]]]) -> Set[Tuple[str, str]]:
     """
     Add albums to the database.
 
-    albums: list of tuples (album_title, artist_name, release_date, [song_titles])
+    albums: list of tuples (album_title, genre_name, artist_name, release_date, [song_titles])
 
     Returns:
         Set of (album_title, artist_name) that were rejected because
@@ -135,18 +141,18 @@ def load_albums(mydb, albums: List[Tuple[str, str, str, List[str]]]) -> Set[Tupl
     cursor = mydb.cursor()
     rejects: Set[Tuple[str, str]] = set()
 
-    # We'll use a default album genre (e.g. 'Unknown') since the function
-    # signature does not give us a genre. The assignment never queries
-    # album genre, so this is safe and keeps the schema consistent.
-    default_genre_name = "Unknown"
-    cursor.execute("INSERT IGNORE INTO Genre(name) VALUES (%s)", (default_genre_name,))
-    cursor.execute("SELECT genre_id FROM Genre WHERE name=%s", (default_genre_name,))
-    genre_row = cursor.fetchone()
-    default_genre_id = genre_row[0]
-
-    for album_title, artist_name, release_date, song_titles in albums:
+    for album_title, genre_name, artist_name, release_date, song_titles in albums:
         # ensure artist exists
         cursor.execute("INSERT IGNORE INTO Artist(name) VALUES (%s)", (artist_name,))
+
+        # ensure genre exists
+        cursor.execute("INSERT IGNORE INTO Genre(name) VALUES (%s)", (genre_name,))
+        cursor.execute("SELECT genre_id FROM Genre WHERE name=%s", (genre_name,))
+        genre_row = cursor.fetchone()
+        if not genre_row:
+            rejects.add((album_title, artist_name))
+            continue
+        genre_id = genre_row[0]
 
         # check if this (album_title, artist_name) already exists
         cursor.execute("""
@@ -163,7 +169,7 @@ def load_albums(mydb, albums: List[Tuple[str, str, str, List[str]]]) -> Set[Tupl
         cursor.execute("""
             INSERT INTO Album (title, release_date, artist_name, genre_id)
             VALUES (%s, %s, %s, %s)
-        """, (album_title, release_date, artist_name, default_genre_id))
+        """, (album_title, release_date, artist_name, genre_id))
         album_id = cursor.lastrowid
 
         # insert songs that belong to this album
@@ -193,7 +199,13 @@ def load_albums(mydb, albums: List[Tuple[str, str, str, List[str]]]) -> Set[Tupl
             cursor.execute("""
                 INSERT IGNORE INTO SongGenre(song_id, genre_id)
                 VALUES (%s, %s)
-            """, (song_id, default_genre_id))
+            """, (song_id, genre_id))
+
+            # link artist to song in SongArtist table
+            cursor.execute("""
+                INSERT IGNORE INTO SongArtist(song_id, artist_name)
+                VALUES (%s, %s)
+            """, (song_id, artist_name))
 
     mydb.commit()
     return rejects

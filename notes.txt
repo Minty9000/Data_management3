@@ -1,0 +1,14 @@
+source venv/bin/activate
+
+mysql -u mk2605 -p
+
+mysql -u mk2605 -p musicdb < music_db.sql
+
+python test_hw3.py
+python3 test2.py
+
+deactivate
+
+Dump before submitting:
+1 - Clear the db
+2 - Run: mysqldump --set-gtid-purged=OFF musicdb > music_db.sql
