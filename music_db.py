@@ -11,7 +11,6 @@ def clear_database(mydb):
     tables = [
         "Rating",
         "SongGenre",
-        "SongArtist",
         "Song",
         "Album",
         "User",
@@ -53,7 +52,7 @@ def load_single_songs(mydb, single_songs):
             rejects.add((title, artist))
             continue
 
-        # 4. Get song_id to insert genres and SongArtist
+        # 4. Get song_id to insert genres
         cursor.execute("""
             SELECT song_id FROM Song 
             WHERE title=%s AND artist_name=%s
@@ -76,12 +75,6 @@ def load_single_songs(mydb, single_songs):
                 INSERT IGNORE INTO SongGenre(song_id, genre_id)
                 VALUES (%s, %s)
             """, (song_id, gid))
-
-        # 6. Link artist to song in SongArtist table
-        cursor.execute("""
-            INSERT IGNORE INTO SongArtist(song_id, artist_name)
-            VALUES (%s, %s)
-        """, (song_id, artist))
 
     mydb.commit()
     return rejects
@@ -200,12 +193,6 @@ def load_albums(mydb, albums: List[Tuple[str, str, str, str, List[str]]]) -> Set
                 INSERT IGNORE INTO SongGenre(song_id, genre_id)
                 VALUES (%s, %s)
             """, (song_id, genre_id))
-
-            # link artist to song in SongArtist table
-            cursor.execute("""
-                INSERT IGNORE INTO SongArtist(song_id, artist_name)
-                VALUES (%s, %s)
-            """, (song_id, artist_name))
 
     mydb.commit()
     return rejects

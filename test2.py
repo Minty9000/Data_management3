@@ -71,8 +71,8 @@ print("=" * 80)
 print(f"\n{BOLD}[PART 0] SCHEMA VALIDATION{END}")
 print("-" * 80)
 
-# Check all tables exist
-tables_to_check = ["Artist", "Genre", "Album", "Song", "SongGenre", "SongArtist", "User", "Rating"]
+# Check all tables exist (7 tables only - no SongArtist)
+tables_to_check = ["Artist", "Genre", "Album", "Song", "SongGenre", "User", "Rating"]
 for table in tables_to_check:
     cursor.execute(f"SELECT 1 FROM information_schema.tables WHERE table_name='{table}' AND table_schema='musicdb'")
     assert_true(cursor.fetchone() is not None, f"Table '{table}' exists")
@@ -87,7 +87,7 @@ print("-" * 80)
 
 clear_database(mydb)
 
-for table in ["Rating", "SongGenre", "SongArtist", "Song", "Album", "User", "Artist", "Genre"]:
+for table in ["Rating", "SongGenre", "Song", "Album", "User", "Artist", "Genre"]:
     count = get_table_count(table)
     assert_equal(count, 0, f"Table '{table}' is empty after clear_database()")
 
@@ -114,10 +114,11 @@ assert_equal(get_table_count("Song"), 6, "6 songs inserted")
 assert_equal(get_table_count("Artist"), 3, "3 artists auto-created")
 assert_equal(get_table_count("Genre"), 4, "4 genres auto-created (Pop, Electronic, Soul, Rock)")
 
-# Test SongArtist population
-cursor.execute("SELECT COUNT(*) FROM SongArtist")
-songartist_count = cursor.fetchone()[0]
-assert_equal(songartist_count, 6, "All 6 songs have entries in SongArtist")
+# Test SongGenre population (not SongArtist - that table doesn't exist)
+# Songs: Hello(1), Skyfall(1), Bad Habits(2), Shape of You(1), Rolling in the Deep(2), Bohemian Rhapsody(2) = 9 total
+cursor.execute("SELECT COUNT(*) FROM SongGenre")
+songgenre_count = cursor.fetchone()[0]
+assert_equal(songgenre_count, 9, "All songs have genre entries in SongGenre")
 
 # Test duplicate rejection
 duplicate_singles = [("Hello", ("Pop",), "Adele", "2015-10-01")]
@@ -135,7 +136,7 @@ bad_habits_genres = cursor.fetchone()[0]
 assert_equal(bad_habits_genres, 2, "Bad Habits linked to 2 genres (Pop, Electronic)")
 
 # Test case preservation
-cursor.execute("SELECT artist_name FROM Song WHERE song_id = 1 LIMIT 1")
+cursor.execute("SELECT artist_name FROM Song WHERE title = 'Hello' LIMIT 1")
 result = cursor.fetchone()
 if result:
     assert_true(result[0] == "Adele", "Artist name case preserved")
@@ -172,10 +173,10 @@ cursor.execute("SELECT COUNT(*) FROM Song WHERE album_id IS NOT NULL")
 album_songs = cursor.fetchone()[0]
 assert_equal(album_songs, 9, "9 album songs inserted (3 per album)")
 
-# Test SongArtist population for album songs
-cursor.execute("SELECT COUNT(*) FROM SongArtist WHERE song_id IN (SELECT song_id FROM Song WHERE album_id IS NOT NULL)")
-album_songartist_count = cursor.fetchone()[0]
-assert_equal(album_songartist_count, 9, "All 9 album songs have SongArtist entries")
+# Test SongGenre population for album songs
+cursor.execute("SELECT COUNT(*) FROM SongGenre WHERE song_id IN (SELECT song_id FROM Song WHERE album_id IS NOT NULL)")
+album_songgenre_count = cursor.fetchone()[0]
+assert_equal(album_songgenre_count, 9, "All 9 album songs have SongGenre entries")
 
 # Test duplicate album rejection (same title + artist)
 duplicate_album = [
@@ -302,7 +303,7 @@ prolific_singles = [
     ("Single 2020 A", ("Pop",), "Adele", "2020-01-01"),
     ("Single 2021 A", ("Pop",), "Adele", "2021-01-01"),
     ("Single 2021 B", ("Pop",), "Ed Sheeran", "2021-01-01"),
-    ("Single 2021 C", ("Pop",), "Ed Sheeran", "2021-01-01"),  # Same date, different title
+    ("Single 2021 C", ("Pop",), "Ed Sheeran", "2021-01-01"),
     ("Single 2022 A", ("Pop",), "Ed Sheeran", "2022-01-01"),
     ("Single 2023 A", ("Pop",), "Queen", "2023-01-01"),
 ]
@@ -321,8 +322,6 @@ assert_equal(result[2][1], 1, "Queen has 1 single")
 # Test 2: Year range 2021 only
 result = get_most_prolific_individual_artists(mydb, 10, (2021, 2021))
 assert_equal(len(result), 2, "2 artists have singles in 2021 only")
-# Both Adele and Ed Sheeran have singles in 2021, but Ed Sheeran has 2 while Adele has 1
-# So Ed Sheeran should be first, Adele second
 assert_equal(result[0][0], "Ed Sheeran", "Ed Sheeran has 2 singles in 2021 (most prolific)")
 assert_equal(result[0][1], 2, "Ed Sheeran has 2 singles in 2021")
 assert_equal(result[1][0], "Adele", "Adele has 1 single in 2021")
@@ -337,14 +336,12 @@ result = get_most_prolific_individual_artists(mydb, 10, (2025, 2025))
 assert_equal(len(result), 0, "No artists in year 2025")
 
 # Test 5: Alphabetical tie-breaking
-# Create two artists with same count
 tie_singles = [
     ("Tie Single 1", ("Pop",), "Zara", "2023-01-01"),
     ("Tie Single 2", ("Pop",), "Alice", "2023-01-01"),
 ]
 load_single_songs(mydb, tie_singles)
 result = get_most_prolific_individual_artists(mydb, 10, (2023, 2023))
-# Filter to just the new artists with 1 single each
 tie_results = [r for r in result if r[0] in ["Alice", "Zara"]]
 assert_true(tie_results[0][0] < tie_results[1][0], "Alphabetical order for ties (Alice before Zara)")
 
@@ -438,7 +435,6 @@ tie_genres = [
 ]
 load_single_songs(mydb, tie_genres)
 result = get_top_song_genres(mydb, 10)
-# Find the one-song genres
 one_song_genres = [r for r in result if r[1] == 1 and r[0] in ["Agenre", "Zgenre"]]
 if len(one_song_genres) >= 2:
     assert_true(one_song_genres[0][0] < one_song_genres[1][0], "Alphabetical order for tie (Agenre before Zgenre)")
@@ -567,7 +563,7 @@ engagement_ratings = [
     ("bob", ("Artist1", "Song 1"), 5, "2023-03-01"),
     ("bob", ("Artist2", "Song 2"), 4, "2023-03-02"),
     ("charlie", ("Artist1", "Song 1"), 5, "2023-04-01"),
-    ("alice", ("Artist1", "Song 6"), 5, "2022-05-01"),  # This should not count in 2023
+    ("alice", ("Artist1", "Song 6"), 5, "2022-05-01"),
 ]
 load_song_ratings(mydb, engagement_ratings)
 
